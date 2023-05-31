@@ -54,3 +54,13 @@ class TestRunner:
         ext = ext.lower()
         supported = [".bin", ".bit", ".vvc", ".266"]
         return ext in supported
+
+    @staticmethod
+    def list_files(path):
+        l = []
+        for root, dirs, files in os.walk(path):
+            for f in files:
+                fn = os.path.join(root, f)
+                if TestRunner.is_candidiate(fn):
+                    l.append(fn)
+        return l
