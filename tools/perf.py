@@ -25,15 +25,52 @@ import subprocess
 import sys
 from runner import *
 
+nul = "NUL" if sys.platform == 'win32' else "/dev/null"
+class FFmpegApp:
+    def __init__(self, path):
+        self.__path = path
+        pass
+    def get_cmd(self, input):
+        cmd = self.__path + " -i " + input + " -vsync 0 -y -f rawvideo " + nul
+        return cmd
+    def get_fps(self, o):
+        o = re.findall(r'fps=.*?q',o.stderr.decode())[-1]
+        o = float(o.replace("fps=", "").replace("q", "").strip())
+        return o
+
+class VVDecApp:
+    def __init__(self, path):
+        self.__path = path
+        pass
+    def get_cmd(self, input):
+        cmd = self.__path + " -b " + input + " -o " + nul
+        return cmd
+    def get_fps(self, o):
+        o = re.findall(r'@ .*?fps',o.stdout.decode())[0]
+        o = float(o.replace("fps", "").replace("@", "").strip())
+        return o
+
 class PerformanceRunner(TestRunner):
     __summary = {}
+    __app = None
     def run(self):
+        self.__app = self.__get_app()
+
         path = self.args.test_path
         if os.path.isfile(path):
             self.__test_file(path)
         else:
             self.__test_dir(path)
+
         self.__print_summary()
+
+    def add_args(self, parser):
+        parser.add_argument("--vvdec-path", type=str)
+
+    def __get_app(self):
+        if self.args.vvdec_path:
+            return VVDecApp(self.args.vvdec_path)
+        return FFmpegApp(self.args.ffmpeg_path)
 
     def __test_dir(self, path):
         files = self.list_files(path)
@@ -47,16 +84,14 @@ class PerformanceRunner(TestRunner):
         fn = os.path.basename(input)
         self.__summary[fn] = []
         fps = self.__summary[fn]
-        nul = "NUL" if sys.platform == 'win32' else "/dev/null"
-        cmd = self.args.ffmpeg_path + " -i " + input + " -vsync 0 -y -f rawvideo " + nul
+        cmd = self.__app.get_cmd(input)
         print(cmd)
         for i in range(0, 3):
             try:
                 o = subprocess.run(cmd.split(), capture_output=True, timeout=5 * 60)
                 if o.returncode:
                     raise Exception(o.stderr)
-                o = re.findall(r'fps=.*?q',o.stderr.decode())[-1]
-                o = float(o.replace("fps=", "").replace("q", "").strip())
+                o = self.__app.get_fps(o)
                 print("fps = ", o)
                 fps.append(o)
             except Exception as e:
