@@ -39,7 +39,7 @@ class TestRunner:
 
         self.args = parser.parse_args()
 
-        if not self.args.ffmpeg_path:
+        if not self.args.vvdec_path and not self.args.ffmpeg_path:
             return Exception(
                 "No FFmpeg path provided. Please provide a path to an FFmpeg executable either with -f, --ffmpeg-path or the environment variable FFMPEG_PATH."
             )
