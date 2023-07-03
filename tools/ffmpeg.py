@@ -78,6 +78,8 @@ class ConformanceRunner(TestRunner):
 
     def add_args(self, parser):
         parser.add_argument("-t", "--threads", type=int, default=4)
+        parser.add_argument("-s", "--timeout", type=int, default=0,
+                            help="Number of seconds before test fails due to timeout. Negative values and zero never fail due to timeout.")
 
     def __test_file(self):
         pss = self.__test(self.args.test_path)
@@ -88,7 +90,11 @@ class ConformanceRunner(TestRunner):
         cmd = self.args.ffmpeg_path + " -i " + input + " -vsync 0 -f md5 -"
         print(cmd)
         try:
-            o = subprocess.run(cmd.split(), capture_output=True, timeout=5 * 60)
+            if self.args.timeout > 0:
+                o = subprocess.run(cmd.split(), capture_output=True, timeout=self.args.timeout)
+            else:
+                o = subprocess.run(cmd.split(), capture_output=True)
+
             if o.returncode:
                 print(o.stderr)
                 return ""
