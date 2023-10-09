@@ -35,9 +35,10 @@ def print_files(name, files):
     if len(files) > 0:
         print(name + " files:")
         for f in files:
-            print("    " + f)
+            print("    " + basename(f))
 
 def print_summary(summary, count):
+    summary[FAILED] = sorted(summary[FAILED], key =  lambda x: os.stat(x).st_size)
     print("")
     print("+++++++++ report +++++++++")
     print_files("failed", summary[FAILED])
@@ -77,7 +78,7 @@ class ConformanceRunner(TestRunner):
             self.__test_dir()
 
     def add_args(self, parser):
-        parser.add_argument("-t", "--threads", type=int, default=4)
+        parser.add_argument("-t", "--threads", type=int, default=16)
 
     def __test_file(self):
         pss = self.__test(self.args.test_path)
@@ -115,7 +116,7 @@ class ConformanceRunner(TestRunner):
             for f in files:
                 fn = join(root, f)
                 if self.is_candidiate(fn):
-                    future_to_file[executor.submit(self.__test, fn)] = f
+                    future_to_file[executor.submit(self.__test, fn)] = fn
         return future_to_file
 
 
