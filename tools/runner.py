@@ -60,7 +60,7 @@ class TestRunner:
     def list_files(path):
         l = []
         for root, dirs, files in os.walk(path):
-            for f in files:
+            for f in sorted(files):
                 fn = os.path.join(root, f)
                 if TestRunner.is_candidiate(fn):
                     l.append(fn)
