@@ -112,11 +112,10 @@ class ConformanceRunner(TestRunner):
 
     def __submmit_files(self, executor, path):
         future_to_file = {}
-        for root, dirs, files in os.walk(path):
-            for f in files:
-                fn = join(root, f)
-                if self.is_candidiate(fn):
-                    future_to_file[executor.submit(self.__test, fn)] = fn
+        file_list = sorted(self.list_files(path), key = lambda x: os.stat(x).st_size)
+        for f in file_list:
+            future_to_file[executor.submit(self.__test, f)] = f
+
         return future_to_file
 
 
