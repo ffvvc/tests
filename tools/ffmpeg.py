@@ -38,7 +38,8 @@ def print_files(name, files):
             print("    " + basename(f))
 
 def print_summary(summary, count):
-    summary[FAILED] = sorted(summary[FAILED], key =  lambda x: os.stat(x).st_size)
+    summary[PASSED].sort(key =  lambda x: basename(x))
+    summary[FAILED].sort(key =  lambda x: os.stat(x).st_size)
     print("")
     print("+++++++++ report +++++++++")
     print_files("failed", summary[FAILED])
