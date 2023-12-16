@@ -25,13 +25,12 @@ import subprocess
 import sys
 from runner import *
 
-nul = "NUL" if sys.platform == 'win32' else "/dev/null"
 class FFmpegApp:
     def __init__(self, path):
         self.__path = path
         pass
     def get_cmd(self, input):
-        cmd = self.__path + " -i " + input + " -vsync 0 -y -f rawvideo " + nul
+        cmd = self.__path + " -i " + input + " -vsync 0 -y -f null - "
         return cmd
     def get_fps(self, o):
         o = re.findall(r'fps=.*?q',o.stderr.decode())[-1]
@@ -43,7 +42,7 @@ class VVDecApp:
         self.__path = path
         pass
     def get_cmd(self, input):
-        cmd = self.__path + " -b " + input + " -o " + nul
+        cmd = self.__path + " -b " + input
         return cmd
     def get_fps(self, o):
         o = re.findall(r'@ .*?fps',o.stdout.decode())[0]
