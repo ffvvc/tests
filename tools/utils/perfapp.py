@@ -36,7 +36,7 @@ class FFmpegApp(PerfApp):
         pass
     def get_cmd(self, input):
         extra = " " if self._asm else " -cpuflags 0"
-        extra += " -threads " + self._threads if self._threads else ""
+        extra += " -threads " + str(self._threads) if self._threads else ""
         cmd = self.__path + extra + " -i " + input + " -vsync 0 -y -f null - "
         return cmd
     def get_fps(self, o):
@@ -50,8 +50,8 @@ class VVDecApp(PerfApp):
         self.__path = path
         pass
     def get_cmd(self, input):
-        extra = " " if self._asm else " -simd 0"
-        extra += " -t " + self._threads if self._threads else ""
+        extra = " " if self._asm else " --simd 0"
+        extra += " -t " + str(self._threads) if self._threads else ""
         cmd = self.__path + extra + " -b " + input
         return cmd
     def get_fps(self, o):
