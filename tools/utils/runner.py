@@ -59,6 +59,9 @@ class TestRunner:
     @staticmethod
     def list_files(path):
         l = []
+        if os.path.isfile(path) and TestRunner.is_candidiate(path):
+            l.append(path)
+            return l
         for root, dirs, files in os.walk(path):
             for f in files:
                 fn = os.path.join(root, f)

@@ -19,10 +19,9 @@
 # ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-import re
+
 import statistics
 import subprocess
-import sys
 from utils.runner import *
 from utils.perfapp import *
 
@@ -32,11 +31,9 @@ class PerformanceRunner(TestRunner):
     def run(self):
         self.__app = self.__get_app()
 
-        path = self.args.test_path
-        if os.path.isfile(path):
-            self.__test_file(path)
-        else:
-            self.__test_dir(path)
+        files = self.list_files(self.args.test_path)
+        for f in files:
+            self.__test(f)
 
         self.__print_summary()
 
@@ -47,14 +44,6 @@ class PerformanceRunner(TestRunner):
         if self.args.vvdec_path:
             return VVDecApp(self.args.vvdec_path)
         return FFmpegApp(self.args.ffmpeg_path)
-
-    def __test_dir(self, path):
-        files = self.list_files(path)
-        for f in files:
-            self.__test(f)
-
-    def __test_file(self, path):
-        self.__test(path)
 
     def __test(self, input):
         fn = os.path.basename(input)
