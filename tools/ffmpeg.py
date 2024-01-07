@@ -26,7 +26,7 @@ from sys import platform
 import re
 import concurrent.futures
 import subprocess
-from runner import *
+from utils.runner import *
 
 PASSED = 0
 FAILED = 1

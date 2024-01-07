@@ -23,7 +23,7 @@ import re
 import statistics
 import subprocess
 import sys
-from runner import *
+from utils.runner import *
 
 class PerfApp:
     def __init__(self, path):
