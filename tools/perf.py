@@ -24,45 +24,7 @@ import statistics
 import subprocess
 import sys
 from utils.runner import *
-
-class PerfApp:
-    def __init__(self, path):
-        self._asm  = True
-        self._threads = 0
-    def set_asm(self, enabled):
-        self._asm = enabled
-    def set_threads(self, threads):
-        self._threads = threads
-
-class FFmpegApp(PerfApp):
-    def __init__(self, path):
-        super().__init__(self)
-        self.__path = path
-        pass
-    def get_cmd(self, input):
-        extra = " " if self._asm else " -cpuflags 0"
-        extra += " -threads " + self._threads if self._threads else ""
-        cmd = self.__path + extra + " -i " + input + " -vsync 0 -y -f null - "
-        return cmd
-    def get_fps(self, o):
-        o = re.findall(r'fps=.*?q',o.stderr.decode())[-1]
-        o = float(o.replace("fps=", "").replace("q", "").strip())
-        return o
-
-class VVDecApp(PerfApp):
-    def __init__(self, path):
-        super().__init__(self)
-        self.__path = path
-        pass
-    def get_cmd(self, input):
-        extra = " " if self._asm else " -simd 0"
-        extra += " -t " + self._threads if self._threads else ""
-        cmd = self.__path + extra + " -b " + input
-        return cmd
-    def get_fps(self, o):
-        o = re.findall(r'@ .*?fps',o.stdout.decode())[0]
-        o = float(o.replace("fps", "").replace("@", "").strip())
-        return o
+from utils.perfapp import *
 
 class PerformanceRunner(TestRunner):
     __summary = {}
