@@ -43,6 +43,8 @@ class FFmpegApp(PerfApp):
         o = re.findall(r'fps=.*?q',o.stderr.decode())[-1]
         o = float(o.replace("fps=", "").replace("q", "").strip())
         return o
+    def get_name(self):
+        return "ffmpeg"
 
 class VVDecApp(PerfApp):
     def __init__(self, path):
@@ -58,3 +60,34 @@ class VVDecApp(PerfApp):
         o = re.findall(r'@ .*?fps',o.stdout.decode())[0]
         o = float(o.replace("fps", "").replace("@", "").strip())
         return o
+    def get_name(self):
+        return "vvdec"
+
+class OpenVVCApp(PerfApp):
+    def __init__(self, path):
+        super().__init__(self)
+        self.__path = path
+        pass
+    def get_cmd(self, input):
+        extra_pre = "time "
+        extra_post = " -t " + str(self._threads) if self._threads else " "
+        extra_post += " -e " + str(self._threads) if self._threads else " "
+        extra_post += " -i " + input
+        extra_post += " -o /dev/null"
+        cmd = extra_pre + self.__path + extra_post
+        return cmd
+    def get_fps(self, o):
+        if match := re.search(r"Decoded ([0-9]+) pictures", o.stderr.decode()):
+            frame_count = int(match.group(1))
+        else:
+            raise Exception("No frame count found")
+        if match := re.search(r"([0-9]+):([0-9]{2}).([0-9]{2})elapsed", o.stderr.decode()):
+            rtime_m = int(match.group(1))
+            rtime_s = int(match.group(2))
+            rtime_cs = int(match.group(3))
+            rtime = rtime_m * 60 + rtime_s + rtime_cs / 100
+        else:
+            raise Exception("No time found")
+        return frame_count / rtime
+    def get_name(self):
+        return "openvvc"
