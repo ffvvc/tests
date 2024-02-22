@@ -73,18 +73,10 @@ def get_ref_md5(fn):
 
 class ConformanceRunner(TestRunner):
     def run(self):
-        if os.path.isfile(self.args.test_path):
-            self.__test_file()
-        else:
-            self.__test_dir()
+        self.__test_files(self.files)
 
     def add_args(self, parser):
         parser.add_argument("-t", "--threads", type=int, default=16)
-
-    def __test_file(self):
-        pss = self.__test(self.args.test_path)
-        print(basename(self.args.test_path) + " passed" if pss == PASSED else " failed")
-        return 0
 
     def __get_md5(self, input):
         cmd = self.args.ffmpeg_path + " -i " + input + " -vsync 0 -f md5 -"
@@ -110,22 +102,22 @@ class ConformanceRunner(TestRunner):
         print("md5 mismatch ref = " + refmd5 + " md5 = " + md5)
         return FAILED
 
-
-    def __submmit_files(self, executor, path):
+    def __submmit_files(self, executor, files):
         future_to_file = {}
-        file_list = sorted(self.list_files(path), key = lambda x: os.stat(x).st_size)
-        for f in file_list:
+        files = sorted(files, key=lambda x: os.stat(x).st_size)
+        for f in files:
             future_to_file[executor.submit(self.__test, f)] = f
 
         return future_to_file
 
-
-    def __test_dir(self):
+    def __test_files(self, files):
         summary = [[], [], []]
         count = [0, 0, 0]
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.threads) as executor:
-            future_to_file = self.__submmit_files(executor, self.args.test_path)
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=self.args.threads
+        ) as executor:
+            future_to_file = self.__submmit_files(executor, files)
             for future in concurrent.futures.as_completed(future_to_file):
                 f = future_to_file[future]
                 try:

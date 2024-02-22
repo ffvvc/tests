@@ -27,7 +27,7 @@ class TestRunner:
     def check_input(self):
         parser = argparse.ArgumentParser(description="FFVVC test runner")
 
-        parser.add_argument("test_path", type=str)
+        parser.add_argument("test_path", type=str, nargs="+")
         parser.add_argument(
             "-f",
             "--ffmpeg-path",
@@ -67,4 +67,11 @@ class TestRunner:
                 fn = os.path.join(root, f)
                 if TestRunner.is_candidiate(fn):
                     l.append(fn)
+        return l
+
+    @property
+    def files(self):
+        l = []
+        for path in self.args.test_path:
+            l += TestRunner.list_files(path)
         return l

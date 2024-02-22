@@ -31,8 +31,7 @@ class ThreadRunner(TestRunner):
     def run(self):
         self.__app = self.__get_app()
 
-        files = self.list_files(self.args.test_path)
-        for f in files:
+        for f in self.files:
             self.__test(f)
 
         self.__print_summary()
