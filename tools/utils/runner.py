@@ -21,7 +21,11 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
+import hashlib
 import os
+import urllib.request
+import yaml
+import tqdm
 
 class TestRunner:
     def check_input(self):
@@ -50,6 +54,39 @@ class TestRunner:
         pass
 
     @staticmethod
+    def get_cfg(file):
+        cfg_file = os.path.splitext(file)[0] + ".yaml"
+        try:
+            with open(cfg_file, "r") as f:
+                cfg = yaml.safe_load(f)
+        except FileNotFoundError:
+            raise FileNotFoundError(f"No corresponding config YAML file {cfg_file} found for source file {file}")
+        return cfg
+
+    @staticmethod
+    def get_md5(file):
+        md5 = hashlib.md5()
+        with open(file, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                md5.update(chunk)
+        return md5.hexdigest()
+
+    @staticmethod
+    def check_src_md5(file):
+        cfg = TestRunner.get_cfg(file)
+        md5 = cfg["src_md5"]
+        return md5 == TestRunner.get_md5(file)
+
+    @staticmethod
+    def child_files(path):
+        if os.path.isfile(path):
+            return [path]
+        else:
+            return [os.path.join(dirpath, filename)
+                    for dirpath, _, filenames in os.walk(path)
+                    for filename in filenames]
+
+    @staticmethod
     def is_candidiate(f):
         filename, ext = os.path.splitext(f)
         ext = ext.lower()
@@ -58,13 +95,34 @@ class TestRunner:
 
     @staticmethod
     def list_files(path):
-        l = []
-        if os.path.isfile(path) and TestRunner.is_candidiate(path):
-            l.append(path)
-            return l
-        for root, dirs, files in os.walk(path):
-            for f in files:
-                fn = os.path.join(root, f)
-                if TestRunner.is_candidiate(fn):
-                    l.append(fn)
-        return l
+        TestRunner.update_files(path)
+        return [f for f in TestRunner.child_files(path) if TestRunner.is_candidiate(f)]
+
+    @staticmethod
+    def download(file):
+        dest = file + ".bit"
+        cfg = TestRunner.get_cfg(file)
+        url = cfg["url"]
+        pbar = tqdm.tqdm(desc=f"Downloading {dest}",
+                         unit="B", unit_scale=True, miniters=1, dynamic_ncols=True)
+        def update_bar(blocknum, blocksize, totalsize):
+            pbar.total = totalsize
+            pbar.update(blocknum * blocksize - pbar.n)
+        filename, headers = urllib.request.urlretrieve(url, dest, reporthook=update_bar)
+        return filename
+
+    @staticmethod
+    def update_files(path):
+        files = [f for f in TestRunner.child_files(path) if f.endswith(".yaml")]
+        files = [os.path.splitext(f)[0] for f in files]
+
+        for f in files:
+            for ext in [".bin", ".bit", ".vvc", ".266"]:
+                if os.path.isfile(f + ext):
+                    src = f + ext
+                    break
+            else:
+                src = TestRunner.download(f)
+
+            if not TestRunner.check_src_md5(src):
+                raise Exception(f"Source MD5 mismatch for {src}")
