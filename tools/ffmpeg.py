@@ -73,10 +73,23 @@ def get_ref_md5(fn):
 
 class ConformanceRunner(TestRunner):
     def run(self):
-        if os.path.isfile(self.args.test_path):
-            self.__test_file()
-        else:
-            self.__test_dir()
+        summary = [[], [], []]
+        count = [0, 0, 0]
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.threads) as executor:
+            future_to_file = self.__submmit_files(executor, self.args.test_path)
+            for future in concurrent.futures.as_completed(future_to_file):
+                f = future_to_file[future]
+                try:
+                    s = future.result()
+                except Exception as e:
+                    print("%s generated an exception: %s" % (f, e))
+                else:
+                    count[s] += 1
+                    summary[s].append(f)
+
+        print_summary(summary, count)
+        sys.exit(count[FAILED])
 
     def add_args(self, parser):
         parser.add_argument("-t", "--threads", type=int, default=16)
@@ -118,26 +131,6 @@ class ConformanceRunner(TestRunner):
             future_to_file[executor.submit(self.__test, f)] = f
 
         return future_to_file
-
-
-    def __test_dir(self):
-        summary = [[], [], []]
-        count = [0, 0, 0]
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.threads) as executor:
-            future_to_file = self.__submmit_files(executor, self.args.test_path)
-            for future in concurrent.futures.as_completed(future_to_file):
-                f = future_to_file[future]
-                try:
-                    s = future.result()
-                except Exception as e:
-                    print("%s generated an exception: %s" % (f, e))
-                else:
-                    count[s] += 1
-                    summary[s].append(f)
-
-        print_summary(summary, count)
-        sys.exit(count[FAILED])
 
 
 if __name__ == "__main__":

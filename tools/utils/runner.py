@@ -80,7 +80,11 @@ class TestRunner:
     @staticmethod
     def child_files(path):
         if os.path.isfile(path):
-            return [path]
+            filename, ext = os.path.splitext(path)
+            if ext == ".yaml":
+                return [filename + ext for ext in [".bin", ".bit", ".vvc", ".266"] if os.path.isfile(filename + ext)]
+            else:
+                return [path]
         else:
             return [os.path.join(dirpath, filename)
                     for dirpath, _, filenames in os.walk(path)
