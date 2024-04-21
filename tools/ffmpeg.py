@@ -27,36 +27,58 @@ import re
 import concurrent.futures
 import subprocess
 from utils.runner import *
+from enum import Enum, auto
+from collections import defaultdict
 
-PASSED = 0
-FAILED = 1
-SKIPPED = 2
+
+class TestResult(Enum):
+    PASSED = auto()
+    MISMATCH = auto()
+    SKIPPED = auto()
+    TIMEOUT = auto()
+    SEGFAULT = auto()
+    PANIC = auto()
+    FPE = auto()
+    DECODE_ERR = auto()
+
+
 def print_files(name, files):
     if len(files) > 0:
         print(name + " files:")
         for f in files:
             print("    " + basename(f))
 
+
 def print_summary(summary, count):
-    summary[PASSED].sort(key =  lambda x: basename(x))
-    summary[FAILED].sort(key =  lambda x: os.stat(x).st_size)
+    failed = sum(
+        count[status]
+        for status in count.keys()
+        if status not in [TestResult.PASSED, TestResult.SKIPPED]
+    )
+    summary[TestResult.PASSED].sort(key=lambda x: basename(x))
+    summary[TestResult.MISMATCH].sort(key=lambda x: os.stat(x).st_size)
     print("")
     print("+++++++++ report +++++++++")
-    print_files("failed", summary[FAILED])
-    print_files("skipped", summary[SKIPPED])
-    print_files("passed", summary[PASSED])
+    print_files("skipped", summary[TestResult.SKIPPED])
+    print_files("mismatch", summary[TestResult.MISMATCH])
+    print_files("timeout", summary[TestResult.TIMEOUT])
+    print_files("segfault", summary[TestResult.SEGFAULT])
+    print_files("panic", summary[TestResult.PANIC])
+    print_files("floating-point exception", summary[TestResult.FPE])
+    print_files("decode_err", summary[TestResult.DECODE_ERR])
     print("")
     print(
         "total = "
-        + str(count[PASSED] + count[FAILED] + count[SKIPPED])
+        + str(sum(count.values()))
         + ", passed = "
-        + str(count[PASSED])
-        + ", failed = "
-        + str(count[FAILED])
+        + str(count[TestResult.PASSED])
         + ", skipped = "
-        + str(count[SKIPPED])
+        + str(count[TestResult.SKIPPED])
+        + ", failed = "
+        + str(failed)
     )
     print("----------")
+
 
 def get_ref_md5(fn):
     dir = dirname(fn)
@@ -71,12 +93,18 @@ def get_ref_md5(fn):
     except (FileNotFoundError, StopIteration):
         return None
 
+
 class ConformanceRunner(TestRunner):
     def run(self):
-        summary = [[], [], []]
-        count = [0, 0, 0]
+        if self.args.allow_decode_error and not self.args.no_output_check:
+            raise Exception("--allow-decode-error requires --no-output-check")
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.threads) as executor:
+        summary = defaultdict(list)
+        count = defaultdict(int)
+
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=self.args.threads
+        ) as executor:
             future_to_file = self.__submmit_files(executor, self.args.test_path)
             for future in concurrent.futures.as_completed(future_to_file):
                 f = future_to_file[future]
@@ -89,44 +117,69 @@ class ConformanceRunner(TestRunner):
                     summary[s].append(f)
 
         print_summary(summary, count)
-        sys.exit(count[FAILED])
+        sys.exit(count[TestResult.MISMATCH])
 
     def add_args(self, parser):
         parser.add_argument("-t", "--threads", type=int, default=16)
+        parser.add_argument("--allow-decode-error", action="store_true")
+        parser.add_argument("--no-output-check", action="store_true")
 
-    def __test_file(self):
-        pss = self.__test(self.args.test_path)
-        print(basename(self.args.test_path) + " passed" if pss == PASSED else " failed")
-        return 0
+    def __ffmpeg_cmd(self, input_stream):
+        return (
+            self.args.ffmpeg_path
+            + " -strict -2 -i "
+            + input_stream
+            + " -vsync 0 -noautoscale -f md5 -"
+        )
 
-    def __get_md5(self, input):
-        cmd = self.args.ffmpeg_path + " -strict -2 -i " + input + " -vsync 0 -noautoscale -f md5 -"
-        print(cmd)
-        try:
-            o = subprocess.run(cmd.split(), capture_output=True, timeout=30 * 60)
-            if o.returncode:
-                print(o.stderr)
-                return ""
-            return o.stdout.decode().replace("MD5=", "").strip()
-        except Exception as e:
-            return str(e)
+    @staticmethod
+    def __returncode_err(returncode):
+        if returncode == -11:
+            return TestResult.SEGFAULT
+        elif returncode == -6:
+            return TestResult.PANIC
+        elif returncode == -8:
+            return TestResult.FPE
+        else:
+            print(returncode)
+            return TestResult.DECODE_ERR
 
     def __test(self, f):
-        refmd5 = get_ref_md5(f)
-        if not refmd5:
-            print(basename(f) + " has no ref md5")
-            return SKIPPED
-        md5 = self.__get_md5(f)
-        if refmd5 == md5:
-            return PASSED
+        print(basename(f), end="")
 
-        print("md5 mismatch ref = " + refmd5 + " md5 = " + md5)
-        return FAILED
+        if not self.args.no_output_check:
+            refmd5 = get_ref_md5(f)
+            if not refmd5:
+                print(" has no ref md5")
+                return TestResult.SKIPPED
 
+        cmd = self.__ffmpeg_cmd(f)
+        try:
+            process = subprocess.run(cmd.split(), capture_output=True, timeout=30 * 60)
+        except subprocess.TimeoutExpired:
+            print(" timed out")
+            return TestResult.TIMEOUT
+
+        if process.returncode != 0:
+            if self.args.allow_decode_error and process.returncode > 0:
+                print(" passed")
+                return TestResult.PASSED
+            else:
+                print(" failed")
+                return self.__returncode_err(process.returncode)
+
+        if not self.args.no_output_check:
+            md5 = process.stdout.decode().replace("MD5=", "").strip()
+            if refmd5 != md5:
+                print(" MD5 mismatch. Ref MD5 = " + refmd5 + ", decoded MD5 = " + md5)
+                return TestResult.MISMATCH
+
+        print(" passed")
+        return TestResult.PASSED
 
     def __submmit_files(self, executor, path):
         future_to_file = {}
-        file_list = sorted(self.list_files(path), key = lambda x: os.stat(x).st_size)
+        file_list = sorted(self.list_files(path), key=lambda x: os.stat(x).st_size)
         for f in file_list:
             future_to_file[executor.submit(self.__test, f)] = f
 
