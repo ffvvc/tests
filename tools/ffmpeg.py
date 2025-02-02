@@ -131,7 +131,7 @@ class ConformanceRunner(TestRunner):
     def __ffmpeg_cmd(self, input_stream):
         return (
             self.args.ffmpeg_path
-            + " -strict -2 -i "
+            + " -strict -2 -f vvc -i "
             + input_stream
             + " -vsync 0 -noautoscale -an -map 0:v:0 -f md5 -"
         )
