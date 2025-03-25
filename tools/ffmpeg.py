@@ -170,6 +170,7 @@ class ConformanceRunner(TestRunner):
                 return TestResult.PASSED
             else:
                 print(" failed")
+                print(cmd)
                 return self.__returncode_err(process.returncode)
 
         if not self.args.no_output_check:
