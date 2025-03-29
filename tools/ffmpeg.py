@@ -126,12 +126,8 @@ class ConformanceRunner(TestRunner):
         parser.add_argument("--fuzz", action="store_true")
 
     def __ffmpeg_cmd(self, input_stream):
-        return (
-            self.args.ffmpeg_path
-            + " -strict -2 -f vvc -i "
-            + input_stream
-            + " -vsync 0 -noautoscale -an -map 0:v:0 -f md5 -"
-        )
+        fmt = "-f vvc" if self.args.fuzz else ""
+        return f"{self.args.ffmpeg_path} -strict -2 {fmt} -i {input_stream} -vsync 0 -noautoscale -an -map 0:v:0 -f md5 -"
 
     @staticmethod
     def __returncode_err(returncode):
