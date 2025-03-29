@@ -97,8 +97,6 @@ def get_ref_md5(fn):
 
 class ConformanceRunner(TestRunner):
     def run(self):
-        if self.args.allow_decode_error and not self.args.no_output_check:
-            raise Exception("--allow-decode-error requires --no-output-check")
 
         summary = defaultdict(list)
         count = defaultdict(int)
@@ -125,8 +123,7 @@ class ConformanceRunner(TestRunner):
 
     def add_args(self, parser):
         parser.add_argument("-t", "--threads", type=int, default=16)
-        parser.add_argument("--allow-decode-error", action="store_true")
-        parser.add_argument("--no-output-check", action="store_true")
+        parser.add_argument("--fuzz", action="store_true")
 
     def __ffmpeg_cmd(self, input_stream):
         return (
@@ -151,7 +148,7 @@ class ConformanceRunner(TestRunner):
     def __test(self, f):
         print(basename(f), end="")
 
-        if not self.args.no_output_check:
+        if not self.args.fuzz:
             refmd5 = get_ref_md5(f)
             if not refmd5:
                 print(" has no ref md5")
@@ -165,7 +162,7 @@ class ConformanceRunner(TestRunner):
             return TestResult.TIMEOUT
 
         if process.returncode != 0:
-            if self.args.allow_decode_error and process.returncode > 0:
+            if self.args.fuzz and process.returncode > 0:
                 print(" passed")
                 return TestResult.PASSED
             else:
@@ -173,7 +170,7 @@ class ConformanceRunner(TestRunner):
                 print(cmd)
                 return self.__returncode_err(process.returncode)
 
-        if not self.args.no_output_check:
+        if not self.args.fuzz:
             md5 = process.stdout.decode().replace("MD5=", "").strip()
             if refmd5 != md5:
                 print(" MD5 mismatch. Ref MD5 = " + refmd5 + ", decoded MD5 = " + md5)
