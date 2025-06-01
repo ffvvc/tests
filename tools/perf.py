@@ -38,9 +38,12 @@ class PerformanceRunner(TestRunner):
         self.__print_summary()
 
     def add_args(self, parser):
+        parser.add_argument("--openvvc-path", type=str)
         parser.add_argument("--vvdec-path", type=str)
 
     def __get_app(self):
+        if self.args.openvvc_path:
+            return OpenVVCApp(self.args.openvvc_path)
         if self.args.vvdec_path:
             return VVDecApp(self.args.vvdec_path)
         return FFmpegApp(self.args.ffmpeg_path)
